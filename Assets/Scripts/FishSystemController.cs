@@ -21,10 +21,13 @@ public class FishSystemController : MonoBehaviour {
     public float maxSpeed = 8.0f;
     public float maxForce = 0.5f;
     [Space(10)]
-    [Range(0, 10)] public float separationWeight = 5.5f;
-    [Range(0, 10)] public float alignmentWeight = 0.5f;
-    [Range(0, 10)] public float cohesionWeight = 0.0f; // Kept off as in the original script
-    [Range(0, 10)] public float goalWeight = 5.5f;
+    [Range(0, 100)] public float separationWeight = 50.0f;
+    [Range(0, 5)] public float alignmentWeight = 1.0f;
+    [Range(0, 100)] public float cohesionWeight = 50.0f; // Kept off as in the original script
+    [Range(0, 10)] public float goalWeight = 5.0f;
+
+    [Header("Dynamic Colliders")]
+    public List<GameObject> DynamicColliders;
 
     private FishSystem fishSystem;
     private List<GameObject> fishGameObjects = new List<GameObject>();
@@ -32,6 +35,7 @@ public class FishSystemController : MonoBehaviour {
     void Start() {
         // Initialize the fish system logic
         fishSystem = new FishSystem(transform.position, fishCount, bounds, this);
+        fishSystem.DynamicColliders = DynamicColliders;
 
         // Create a GameObject for each fish to visualize it
         for (int i = 0; i < fishCount; i++) {
@@ -49,12 +53,12 @@ public class FishSystemController : MonoBehaviour {
         }
         RunningTime += Time.deltaTime;
 
-        float A = 50.0f;
-        float B = 50.0f;
-        float T = RunningTime;
+        // float A = 50.0f;
+        // float B = 50.0f;
+        // float T = RunningTime;
 
 
-        target.position = new Vector3(A * Mathf.Sin(T), B * Mathf.Sin(T) * Mathf.Cos(T), (A / B) * Mathf.Cos(T) * Mathf.Sin(T) * Mathf.Tan(T));
+        // target.position = new Vector3(A * Mathf.Sin(T), B * Mathf.Sin(T) * Mathf.Cos(T), (A / B) * Mathf.Cos(T) * Mathf.Sin(T) * Mathf.Tan(T));
 
         // Update the underlying simulation logic
         fishSystem.UpdateSystem(target.position, Time.deltaTime);
@@ -113,6 +117,7 @@ public class Fish {
 // Manages the entire collection of fish and their interactions
 public class FishSystem {
     public List<Fish> fishes = new List<Fish>();
+    public List<GameObject> DynamicColliders = new List<GameObject>();
     private readonly int count;
     private readonly Vector3 bounds;
     private readonly FishSystemController controller; // Reference to MonoBehaviour for parameters
@@ -121,6 +126,7 @@ public class FishSystem {
         this.count = fishCount;
         this.bounds = simulationBounds;
         this.controller = controller;
+        // this.DynamicColliders = Dynamic_Colliders;
 
         // Spawn fish within a UnityEngine.Random sphere inside the bounds
         for (int i = 0; i < this.count; i++) {
@@ -147,7 +153,7 @@ public class FishSystem {
         foreach (var fish in fishes) {
             Vector3 steerSeparation = Vector3.zero;
             Vector3 steerAlignment = Vector3.zero;
-            Vector3 steerCohesion = Vector3.zero; // Not used in original script
+            Vector3 steerCohesion = Vector3.zero;
             int total = 0;
 
             // Find neighbors
@@ -159,6 +165,7 @@ public class FishSystem {
                     // Separation: Steer away from neighbors
                     Vector3 diff = fish.position - other.position;
                     steerSeparation += diff.normalized / dist; // Weight by distance
+                    steerCohesion += diff.normalized / dist; // Weight by distance
 
                     // Alignment: Steer towards the average velocity of neighbors
                     steerAlignment += other.velocity;
@@ -169,6 +176,7 @@ public class FishSystem {
             
             if (total > 0) {
                 steerSeparation /= total;
+                steerCohesion /= total;
                 steerAlignment /= total;
 
                 // Normalize and apply max speed/force
@@ -184,6 +192,7 @@ public class FishSystem {
             // Apply weighted forces as acceleration
             Vector3 acceleration = Vector3.zero;
             acceleration += steerSeparation * controller.separationWeight;
+            acceleration -= steerCohesion * controller.cohesionWeight;
             acceleration += steerAlignment * controller.alignmentWeight;
             acceleration += steerGoal * controller.goalWeight;
             
@@ -218,6 +227,23 @@ public class FishSystem {
                     
                     forces[i] += repulsion;
                     forces[j] -= repulsion;
+                }
+            }
+        }
+        
+        for (int i = 0; i < count; i++) {
+            for (int j = 0; j < DynamicColliders.Count; j++) {
+                Fish fish1 = fishes[i];
+                GameObject collider = DynamicColliders[j];
+
+                Vector3 diff = fish1.position - collider.transform.position;
+                float distance = diff.magnitude;
+
+                if (distance > 0 && distance < MIN_DIST + (collider.transform.localScale.magnitude/2.0f)) {
+                    float overlap = (MIN_DIST + (collider.transform.localScale.magnitude/2.0f)) - distance;
+                    Vector3 repulsion = diff.normalized * overlap * REPULSION_STRENGTH;
+                    
+                    forces[i] += repulsion;
                 }
             }
         }
