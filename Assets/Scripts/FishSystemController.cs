@@ -2,18 +2,17 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-// Main MonoBehaviour class to manage the simulation in Unity
 public class FishSystemController : MonoBehaviour {
     [Header("Spawning")]
-    [Tooltip("The prefab for the fish (e.g., a sphere or capsule).")]
+    [Tooltip("The prefab for the fish.")]
     public GameObject fishPrefab;
-    [Tooltip("The number of fish to spawn in the system.")]
+    [Tooltip("The number of fish to spawn.")]
     public int fishCount = 50;
-    [Tooltip("The dimensions of the cube-shaped area where fish will spawn and be contained.")]
+    [Tooltip("The dimensions of the cube area where all the fishes will be contained.")]
     public Vector3 bounds = new Vector3(50, 50, 50);
 
     [Header("Boids Behavior")]
-    [Tooltip("The target the fish will be attracted to.")]
+    [Tooltip("The target the fishes will be attracted to.")]
     public Transform target;
     private float RunningTime;
     [Space(10)]
@@ -23,7 +22,7 @@ public class FishSystemController : MonoBehaviour {
     [Space(10)]
     [Range(0, 100)] public float separationWeight = 50.0f;
     [Range(0, 5)] public float alignmentWeight = 1.0f;
-    [Range(0, 100)] public float cohesionWeight = 50.0f; // Kept off as in the original script
+    [Range(0, 100)] public float cohesionWeight = 50.0f;
     [Range(0, 10)] public float goalWeight = 5.0f;
 
     [Header("Dynamic Colliders")]
@@ -33,11 +32,11 @@ public class FishSystemController : MonoBehaviour {
     private List<GameObject> fishGameObjects = new List<GameObject>();
 
     void Start() {
-        // Initialize the fish system logic
+        // Initialize the fish system
         fishSystem = new FishSystem(transform.position, fishCount, bounds, this);
         fishSystem.DynamicColliders = DynamicColliders;
 
-        // Create a GameObject for each fish to visualize it
+        // Create a GameObject for each fish
         for (int i = 0; i < fishCount; i++) {
             Fish fishData = fishSystem.fishes[i];
             GameObject fishGO = Instantiate(fishPrefab, fishData.position, Quaternion.identity, transform);
@@ -46,7 +45,6 @@ public class FishSystemController : MonoBehaviour {
     }
 
     void Update() {
-        // Ensure the target is set before updating
         if (target == null) {
             Debug.LogWarning("Boids target is not set!");
             return;
@@ -60,13 +58,13 @@ public class FishSystemController : MonoBehaviour {
 
         // target.position = new Vector3(A * Mathf.Sin(T), B * Mathf.Sin(T) * Mathf.Cos(T), (A / B) * Mathf.Cos(T) * Mathf.Sin(T) * Mathf.Tan(T));
 
-        // Update the underlying simulation logic
+        // Update the simulation
         fishSystem.UpdateSystem(target.position, Time.deltaTime);
 
         // Update the position and rotation of each fish GameObject
         for (int i = 0; i < fishCount; i++) {
             fishGameObjects[i].transform.position = fishSystem.fishes[i].position;
-            // Optional: Make the fish look where they are going
+
             if (fishSystem.fishes[i].velocity != Vector3.zero) {
                 fishGameObjects[i].transform.rotation = Quaternion.LookRotation(fishSystem.fishes[i].velocity);
             }
@@ -97,7 +95,7 @@ public class Fish {
     public void UpdatePosition(float dt) {
         position += velocity * dt;
 
-        // Keep fish within the specified bounds by reflecting their velocity
+        // Keep fish inside the bounds by reflecting their velocity
         if (Mathf.Abs(position.x) > bounds.x / 2 - FISH_RADIUS) {
             position.x = (bounds.x / 2 - FISH_RADIUS) * Mathf.Sign(position.x);
             velocity.x *= -1;
@@ -114,7 +112,7 @@ public class Fish {
 }
 
 
-// Manages the entire collection of fish and their interactions
+// Manages the fishes and their interactions
 public class FishSystem {
     public List<Fish> fishes = new List<Fish>();
     public List<GameObject> DynamicColliders = new List<GameObject>();
@@ -126,9 +124,8 @@ public class FishSystem {
         this.count = fishCount;
         this.bounds = simulationBounds;
         this.controller = controller;
-        // this.DynamicColliders = Dynamic_Colliders;
 
-        // Spawn fish within a UnityEngine.Random sphere inside the bounds
+        // Spawn fish within a random sphere
         for (int i = 0; i < this.count; i++) {
             Vector3 pos = center + UnityEngine.Random.insideUnitSphere * 20;
             Vector3 vel = UnityEngine.Random.onUnitSphere * UnityEngine.Random.Range(3.0f, 8.0f);
@@ -143,7 +140,7 @@ public class FishSystem {
         // Hard Collision Handling
         HandleCollisions(dt);
 
-        // Update final positions for all fish
+        // Update final positions for all fishes
         foreach (var fish in fishes) {
             fish.UpdatePosition(dt);
         }
@@ -192,7 +189,7 @@ public class FishSystem {
             // Apply weighted forces as acceleration
             Vector3 acceleration = Vector3.zero;
             acceleration += steerSeparation * controller.separationWeight;
-            acceleration -= steerCohesion * controller.cohesionWeight;
+            acceleration -= steerCohesion * controller.cohesionWeight; // Invert the separation to get the attraction
             acceleration += steerAlignment * controller.alignmentWeight;
             acceleration += steerGoal * controller.goalWeight;
             
