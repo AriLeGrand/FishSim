@@ -25,6 +25,9 @@ public class FishSystemController : MonoBehaviour {
     [Range(0, 100)] public float cohesionWeight = 50.0f;
     [Range(0, 10)] public float goalWeight = 5.0f;
 
+    [Header("Goal Settings")]
+    public float minGoalWeight = 0.1f;
+    public float goalFalloff = 0.05f;
     [Header("Static Colliders")]
     public List<GameObject> StaticColliders;
 
@@ -151,23 +154,19 @@ public class FishSystem {
         }
     }
 
-    private void UpdateBoidsBehavior(Vector3 targetPosition, float dt)
-    {
-        foreach (var fish in fishes)
-        {
+    private void UpdateBoidsBehavior(Vector3 targetPosition, float dt) {
+        foreach (var fish in fishes) {
             Vector3 steerSeparation = Vector3.zero;
             Vector3 steerAlignment = Vector3.zero;
             Vector3 steerCohesion = Vector3.zero;
             int total = 0;
 
             // Find neighbors
-            foreach (var other in fishes)
-            {
+            foreach (var other in fishes) {
                 if (fish == other) continue;
 
                 float dist = Vector3.Distance(fish.position, other.position);
-                if (dist > 0 && dist < controller.perceptionRadius)
-                {
+                if (dist > 0 && dist < controller.perceptionRadius) {
                     // Separation: Steer away from neighbors
                     Vector3 diff = fish.position - other.position;
                     steerSeparation += diff.normalized / dist; // Weight by distance
@@ -180,8 +179,7 @@ public class FishSystem {
                 }
             }
 
-            if (total > 0)
-            {
+            if (total > 0) {
                 steerSeparation /= total;
                 steerCohesion /= total;
                 steerAlignment /= total;
@@ -196,12 +194,27 @@ public class FishSystem {
             steerGoal = steerGoal.normalized * controller.maxSpeed;
             steerGoal = Vector3.ClampMagnitude(steerGoal - fish.velocity, controller.maxForce);
 
+
+
             // Apply weighted forces as acceleration
             Vector3 acceleration = Vector3.zero;
             acceleration += steerSeparation * controller.separationWeight;
             acceleration -= steerCohesion * controller.cohesionWeight; // Invert the separation to get the attraction
             acceleration += steerAlignment * controller.alignmentWeight;
-            acceleration += steerGoal * controller.goalWeight;
+
+            float distanceToTarget = (fish.position - targetPosition).magnitude;
+            float goalWeight;
+
+            // Exponential falloff for goal force when outside perception radius
+            if (distanceToTarget < controller.perceptionRadius) {
+                goalWeight = controller.goalWeight;
+            } else {
+                float falloffFactor = Mathf.Exp(-(distanceToTarget - controller.perceptionRadius) * controller.goalFalloff); // goalFalloff controls how fast it decays
+                float minGoalWeight = controller.minGoalWeight; // define a minimum so force never goes to 0
+                goalWeight = Mathf.Max(falloffFactor * controller.goalWeight, minGoalWeight);
+            }
+
+            acceleration += steerGoal * goalWeight;
 
             // Add wander noise
             acceleration += UnityEngine.Random.insideUnitSphere * 0.1f;
@@ -263,6 +276,24 @@ public class FishSystem {
                     forces[i] += repulsion;
                 }
             }
+        }
+        for (int i = 0; i < count; i++)
+        {
+            
+            Fish fish1 = fishes[i];
+            GameObject collider = DynamicCollider;
+
+            Vector3 diff = fish1.position - collider.transform.position;
+            float distance = diff.magnitude;
+
+            if (distance > 0 && distance < MIN_DIST + (collider.transform.localScale.x / 2.0f))
+            {
+                float overlap = (MIN_DIST + (collider.transform.localScale.x / 2.0f)) - distance;
+                Vector3 repulsion = diff.normalized * overlap * REPULSION_STRENGTH;
+
+                forces[i] += repulsion;
+            }
+            
         }
 
         // Apply forces to velocities

@@ -295,7 +295,9 @@ MonoBehaviour:
   separationWeight: 50
   alignmentWeight: 1
   cohesionWeight: 50
-  goalWeight: 5
+  goalWeight: 10
+  minGoalWeight: 0.5
+  goalFalloff: 0.02
   StaticColliders:
   - {fileID: 1195391100}
   - {fileID: 1055719724}
